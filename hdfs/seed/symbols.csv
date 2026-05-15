@@ -1,0 +1,8 @@
+symbol,name,category,base,quote
+BTCUSDT,Bitcoin,Layer1,BTC,USDT
+ETHUSDT,Ethereum,Layer1,ETH,USDT
+SOLUSDT,Solana,Layer1,SOL,USDT
+BNBUSDT,BNB,Exchange,BNB,USDT
+ADAUSDT,Cardano,Layer1,ADA,USDT
+XRPUSDT,XRP,Payments,XRP,USDT
+DOGEUSDT,Dogecoin,Memecoin,DOGE,USDT

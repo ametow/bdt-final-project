@@ -1,0 +1,160 @@
+name: bdt-final
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks: [bdt]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server kafka:29092 --list || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [bdt]
+
+  namenode:
+    image: apache/hadoop:3.3.6
+    container_name: namenode
+    hostname: namenode
+    user: root
+    command: ["hdfs", "namenode"]
+    ports:
+      - "9871:9870"
+      - "9001:9000"
+    environment:
+      ENSURE_NAMENODE_DIR: /tmp/hadoop-root/dfs/name
+    env_file: ./hadoop.env
+    networks: [bdt]
+
+  datanode:
+    image: apache/hadoop:3.3.6
+    container_name: datanode
+    hostname: datanode
+    user: root
+    command: ["hdfs", "datanode"]
+    env_file: ./hadoop.env
+    depends_on: [namenode]
+    ports:
+      - "9865:9864"
+    networks: [bdt]
+
+  hdfs-seed:
+    image: apache/hadoop:3.3.6
+    container_name: hdfs-seed
+    user: root
+    depends_on: [namenode, datanode]
+    env_file: ./hadoop.env
+    volumes:
+      - ./hdfs/seed:/seed:ro
+      - ./scripts/seed_hdfs.sh:/seed_hdfs.sh:ro
+    entrypoint: ["/bin/bash", "/seed_hdfs.sh"]
+    networks: [bdt]
+    restart: "no"
+
+  hbase:
+    image: harisekhon/hbase:2.1
+    container_name: hbase
+    hostname: hbase
+    ports:
+      - "16010:16010"
+      - "9090:9090"
+      - "2182:2181"
+    networks: [bdt]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/9090"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  hbase-init:
+    build: ./hbase
+    container_name: hbase-init
+    depends_on:
+      hbase:
+        condition: service_healthy
+    environment:
+      HBASE_HOST: hbase
+      HBASE_PORT: "9090"
+    networks: [bdt]
+    restart: "no"
+
+  spark:
+    build: ./spark
+    container_name: spark
+    depends_on:
+      kafka:
+        condition: service_healthy
+      hbase-init:
+        condition: service_completed_successfully
+      hdfs-seed:
+        condition: service_completed_successfully
+    ports:
+      - "4040:4040"
+    environment:
+      SPARK_MODE: master
+      HOME: /tmp
+    volumes:
+      - ./spark/streaming_job.py:/app/streaming_job.py:ro
+    command: >
+      /opt/spark/bin/spark-submit
+      --master local[2]
+      --conf spark.jars.ivy=/tmp/.ivy2
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.8
+      /app/streaming_job.py
+    networks: [bdt]
+
+  producer:
+    build: ./producer
+    container_name: producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+      KAFKA_TOPIC: trades
+      SYMBOLS: btcusdt,ethusdt,solusdt,adausdt
+    networks: [bdt]
+    restart: unless-stopped
+
+  dashboard:
+    build: ./dashboard
+    container_name: dashboard
+    depends_on:
+      hbase-init:
+        condition: service_completed_successfully
+    ports:
+      - "8501:8501"
+    environment:
+      HBASE_HOST: hbase
+      HBASE_PORT: "9090"
+    volumes:
+      - ./dashboard/app.py:/app/app.py:ro
+    networks: [bdt]
+
+networks:
+  bdt:
+    driver: bridge
