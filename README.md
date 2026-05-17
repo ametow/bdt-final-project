@@ -44,7 +44,7 @@ Binance WebSocket
 ├── hdfs/seed/symbols.csv     # static reference dataset
 ├── scripts/seed_hdfs.sh      # uploads symbols.csv into HDFS on startup
 ├── dashboard/                # Streamlit app
-├── task.md                   # original assignment
+├── pipeline_flow.png         # pipeline flow diagram
 └── README.md
 ```
 
