@@ -124,7 +124,7 @@ def main():
         .withWatermark("event_time", "30 seconds")
     )
 
-    # Spark SQL join with static reference (Part 5).
+    # Spark SQL join with static reference
     enriched = parsed.join(symbols_df, on="symbol", how="left")
 
     agg = (

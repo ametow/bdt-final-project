@@ -7,7 +7,7 @@ dataset on HDFS), persists results to HBase, and visualizes them through
 a Streamlit dashboard. The whole stack runs locally with **Docker
 Compose**.
 
-![Architecture](sample_flow.png)
+![Architecture](pipeline_flow.png)
 
 ## Architecture
 
@@ -41,7 +41,7 @@ Binance WebSocket
 ├── producer/                 # Binance WS → Kafka producer (Python)
 ├── spark/                    # Spark Structured Streaming job
 ├── hbase/                    # init container: creates trade_agg, trade_latest
-├── hdfs/seed/symbols.csv     # static reference dataset (Part 5)
+├── hdfs/seed/symbols.csv     # static reference dataset
 ├── scripts/seed_hdfs.sh      # uploads symbols.csv into HDFS on startup
 ├── dashboard/                # Streamlit app
 ├── task.md                   # original assignment
@@ -131,7 +131,7 @@ Tunable via environment variables in `docker-compose.yml`:
 | `spark`     | `HDFS_SYMBOLS`              | `hdfs://namenode:9000/seed/symbols.csv` | Static reference dataset                                          |
 | `dashboard` | `HBASE_HOST` / `HBASE_PORT` | `hbase` / `9090`                        | HBase Thrift gateway                                              |
 
-## How each Part of `task.md` is satisfied
+## Summary
 
 1. **Real-time ingestion (Kafka)** — `producer/producer.py` connects to the
    Binance combined `@trade` WebSocket and publishes JSON events to Kafka.
@@ -173,9 +173,3 @@ Tunable via environment variables in `docker-compose.yml`:
 - **Port already allocated** — another container/process is bound to one
   of the host ports above. Either stop it or edit the `ports:` mappings
   in `docker-compose.yml` (only the left-hand host port matters).
-
-## Deliverables
-
-- **Source code**: this repository.
-- **Video demo**: see project submission link (max 20 min, all team
-  members on camera, showing data flow Kafka → Spark → HBase → dashboard).
